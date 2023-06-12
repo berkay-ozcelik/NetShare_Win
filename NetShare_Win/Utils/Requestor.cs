@@ -17,7 +17,7 @@ namespace NetShare_Win.Communicator
         {
             if (_instance == null)
             {
-                _instance = new Requestor("127.0.0.1:545");
+                _instance = new Requestor("127.0.0.1:4791");
             }
 
             return _instance;
