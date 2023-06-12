@@ -1,5 +1,7 @@
 ﻿using NetShare_Core.Entity;
 using System.IO.Pipes;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
@@ -15,22 +17,22 @@ namespace NetShare_Win.Communicator
         {
             if (_instance == null)
             {
-                _instance = new Requestor("NetShare");
+                _instance = new Requestor("127.0.0.1:545");
             }
 
             return _instance;
         }
 
-        private NamedPipeClientStream _pipeClient;
+        private Socket _pipeClient;
 
         private Encoding _encoding;
             
 
-        private Requestor(string pipeName)
+        private Requestor(string endPoint)
         {   
             _encoding = Encoding.UTF8;
-            _pipeClient = new NamedPipeClientStream(pipeName);
-            _pipeClient.Connect();
+            _pipeClient = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _pipeClient.Connect(IPEndPoint.Parse(endPoint));
         }
 
         public CommandResult SendAndReceive(CommandRequest request)
@@ -44,24 +46,24 @@ namespace NetShare_Win.Communicator
             return JsonSerializer.Deserialize<CommandResult>(rawResponse);
         }
 
-        private static string ReadAll(NamedPipeClientStream pipeServer, Encoding encoding)
+        private static string ReadAll(Socket pipeClient, Encoding encoding)
         {
 
             byte[] buffer = new byte[4];
 
-            pipeServer.Read(buffer, 0, buffer.Length);
+            pipeClient.Receive(buffer);
 
             int bufferSize = BitConverter.ToInt32(buffer, 0);
 
             buffer = new byte[bufferSize];
 
-            pipeServer.Read(buffer, 0, buffer.Length);
+            pipeClient.Receive(buffer);
 
             return encoding.GetString(buffer);
 
         }
 
-        private static void WriteAll(NamedPipeClientStream pipeServer, Encoding encoding, string data)
+        private static void WriteAll(Socket pipeClient, Encoding encoding, string data)
         {
             byte[] buffer = encoding.GetBytes(data);
             byte[] bufferSize = BitConverter.GetBytes(buffer.Length);
@@ -72,10 +74,8 @@ namespace NetShare_Win.Communicator
 
             buffer.CopyTo(message, bufferSize.Length);
 
+            pipeClient.Send(message);
 
-            pipeServer.Write(message, 0, message.Length);
-
-            pipeServer.Flush();
         }
     }
 }
